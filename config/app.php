@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\ServiceProvider;
 
 return [
 
@@ -185,6 +186,8 @@ return [
         /*
          * Package Service Providers...
          */
+        // --- TAMBAHAN: Provider untuk Library Gambar ---
+        Intervention\Image\ImageServiceProvider::class,
 
         /*
          * Application Service Providers...
@@ -210,6 +213,10 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'ExampleClass' => App\Example\ExampleClass::class,
+        
+        // --- TAMBAHAN: Alias agar bisa panggil 'Image::make()' ---
+        'Image' => Intervention\Image\Facades\Image::class,
+        
     ])->toArray(),
 
 ];
