@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SnapController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GalleryController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -45,7 +47,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
 
     // 6. Upload Foto (Buat Projek Baru)
-    Route::get('/upload', [SnapController::class, 'create'])->name('upload.create');
-    Route::post('/upload', [SnapController::class, 'store'])->name('upload.store');
+    Route::get('/gallery/upload', [GalleryController::class, 'create'])->name('gallery.upload.create');
+    Route::post('/gallery/upload', [GalleryController::class, 'store'])->name('gallery.upload.store');
+
+    Route::get('/gallery/request', [GalleryController::class, 'request'])->name('gallery.request');
+    Route::post('/gallery/request', [GalleryController::class, 'submitRequest'])->name('gallery.request.submit');
 
 });

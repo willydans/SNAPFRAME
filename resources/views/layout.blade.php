@@ -31,7 +31,8 @@
                         <a href="{{ route('gallery') }}" class="{{ request()->routeIs('gallery') || request()->routeIs('home') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Galeri Frame
                         </a>
-                        <a href="{{ route('upload.create') }}" class="{{ request()->routeIs('upload.create') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                        <a href="{{ route('gallery.upload.create') }}"
+                            class="{{ request()->routeIs('gallery.upload.*') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Upload Foto
                         </a>
                         <a href="{{ route('pekerjaan') }}" class="{{ request()->routeIs('pekerjaan') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
