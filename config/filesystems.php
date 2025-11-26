@@ -56,19 +56,18 @@ return [
             'throw' => false,
         ],
 
-        // --- TAMBAHAN KHUSUS ORACLE CLOUD (OCI) ---
+        // --- KONFIGURASI KHUSUS ORACLE CLOUD (OCI) ---
         'oci' => [
-            'driver' => 's3',  // OCI kompatibel dengan driver s3
+            'driver' => 's3', // Driver tetap s3 karena OCI kompatibel dengan S3
             'key' => env('OCI_ACCESS_KEY_ID'),
             'secret' => env('OCI_SECRET_ACCESS_KEY'),
             'region' => env('OCI_DEFAULT_REGION'),
-            'bucket' => env('OCI_BUCKET_INPUT'), // Default bucket (bisa di-override di code)
-            'url' => env('OCI_URL'),
-            'endpoint' => env('OCI_URL'), // Endpoint sama dengan URL
-            'use_path_style_endpoint' => true, // WAJIB TRUE untuk OCI
+            'bucket' => env('OCI_BUCKET_INPUT'),
+            'endpoint' => env('OCI_URL'),
+            'use_path_style_endpoint' => true, // Wajib TRUE untuk OCI
             'throw' => false,
         ],
-        // ------------------------------------------
+        // ---------------------------------------------
 
     ],
 

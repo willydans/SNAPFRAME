@@ -8,144 +8,163 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
-use Intervention\Image\Facades\Image; // Pastikan library ini terinstall
+use Intervention\Image\Facades\Image;
+use Illuminate\Support\Facades\Log;
 
 class SnapController extends Controller
 {
-    /**
-     * 1. DASHBOARD: Halaman Statistik & Ringkasan
-     * Route: /dashboard
-     */
     public function index()
     {
         $userId = Auth::id();
-        
-        // Hitung total projek user untuk ditampilkan di widget statistik dashboard
         $totalProjek = Job::where('user_id', $userId)->count();
-        
-        // Kita kirim variable $totalProjek ke view 'dashboard'
-        return view('dashboard', compact('totalProjek'));
+        $recentJobs = Job::with('frame')->where('user_id', $userId)->latest()->take(5)->get();
+        return view('dashboard', compact('totalProjek', 'recentJobs'));
     }
 
-    /**
-     * 2. PEKERJAAN SAYA: Halaman History Lengkap
-     * Route: /pekerjaan-saya
-     */
     public function pekerjaan()
     {
         $userId = Auth::id();
-        
-        // Ambil SEMUA data pekerjaan milik user, urutkan dari terbaru
-        // Include 'frame' biar kita bisa ambil nama frame-nya
         $jobs = Job::with('frame')->where('user_id', $userId)->latest()->get();
-        
-        // Kirim data $jobs ke view 'pekerjaan' (file pekerjaan.blade.php)
         return view('pekerjaan', compact('jobs'));
     }
 
-    /**
-     * 3. GALERI FRAME: Katalog Pilihan Frame
-     * Route: /frames
-     */
     public function gallery()
     {
         $frames = Frame::all();
-        
-        // Mengembalikan view khusus galeri. 
-        // Pastikan kamu punya file 'resources/views/frames/index.blade.php' 
-        // atau ubah jadi 'welcome' jika galeri ada di landing page.
         return view('frames.index', compact('frames'));
     }
 
-    /**
-     * 4. PROFIL: Halaman Profil User
-     * Route: /profile
-     */
     public function profile()
     {
         $userId = Auth::id();
-        
-        // Hitung jumlah job untuk statistik di halaman profil
         $jobs_count = Job::where('user_id', $userId)->count();
-
         return view('profile', compact('jobs_count'));
     }
 
-    /**
-     * 5. CREATE: Form Upload
-     * Route: /upload (GET)
-     */
     public function create(Request $request)
     {
         $frames = Frame::all();
-        
-        // Menangkap frame_id jika user memilih dari galeri
         $selectedFrameId = $request->query('frame_id'); 
-        
-        return view('upload', compact('frames', 'selectedFrameId'));
+        return view('gallery.upload', compact('frames', 'selectedFrameId'));
     }
 
-    /**
-     * 6. STORE: Proses Logic Berat (Upload & Merge)
-     * Route: /upload (POST)
-     */
     public function store(Request $request)
     {
-        // --- 1. Validasi Dasar ---
+        // 1. Validasi Input User
         $request->validate([
             'name' => 'required|string|max:255',
             'priority' => 'required',
             'frame_id' => 'required|exists:frames,id',
             'photos' => 'required|array', 
-            'photos.*' => 'image|max:5120', // Tiap foto max 5MB
+            'photos.*' => 'image|max:5120', // Max 5MB
         ]);
 
         $user = Auth::user();
         $frame = Frame::find($request->frame_id);
         $uploadedPhotos = $request->file('photos');
 
-        // --- Logic: Validasi Jumlah Foto ---
         if (count($uploadedPhotos) !== $frame->max_photos) {
             return back()
-                ->withErrors(['msg' => "Gagal! Frame '{$frame->name}' mewajibkan tepat {$frame->max_photos} foto. Anda mengupload " . count($uploadedPhotos) . " foto."])
+                ->withErrors(['msg' => "Gagal! Frame '{$frame->name}' butuh {$frame->max_photos} foto."])
                 ->withInput();
         }
 
         try {
-            // --- Logic: Persiapan Canvas ---
-            $canvas = Image::make($frame->image_url);
-            $coordinates = json_decode($frame->coordinates, true);
+            // --- KONFIGURASI OCI (Clean Config) ---
+            $ociKey = trim(env('OCI_ACCESS_KEY_ID', ''), " \"'");
+            $ociSecret = trim(env('OCI_SECRET_ACCESS_KEY', ''), " \"'");
+            $ociRegion = trim(env('OCI_DEFAULT_REGION', 'ap-batam-1'), " \"'");
+            $ociBucket = trim(env('OCI_BUCKET_INPUT', ''), " \"'");
+            $ociEndpoint = trim(env('OCI_URL', ''), " \"'");
 
-            if (empty($coordinates)) {
-                throw new \Exception("Konfigurasi koordinat frame belum diset oleh Admin.");
+            if (empty($ociKey) || empty($ociSecret) || empty($ociBucket)) {
+                throw new \Exception("Konfigurasi ENV OCI belum lengkap.");
             }
 
-            // --- Logic: Looping & Tempel Foto ---
+            // Reset Config Disk
+            config([
+                'filesystems.disks.oci' => [
+                    'driver' => 's3',
+                    'key' => $ociKey,
+                    'secret' => $ociSecret,
+                    'region' => $ociRegion,
+                    'bucket' => $ociBucket,
+                    'endpoint' => $ociEndpoint,
+                    'use_path_style_endpoint' => true,
+                    'throw' => true,
+                ]
+            ]);
+            Storage::forgetDisk('oci');
+
+            // --- STEP 1: UPLOAD RAW FILE (Backup) ---
             foreach ($uploadedPhotos as $index => $photoFile) {
-                if (!isset($coordinates[$index])) break;
-                
-                $slot = $coordinates[$index]; 
-                $imgUser = Image::make($photoFile);
-                
-                // Resize & Crop agar pas di lubang frame
-                $imgUser->fit($slot['w'], $slot['h']);
-
-                // Tempelkan ke canvas
-                $canvas->insert($imgUser, 'top-left', $slot['x'], $slot['y']);
+                $rawFileName = 'raw_' . time() . '_' . $index . '_' . Str::random(5) . '.' . $photoFile->getClientOriginalExtension();
+                Storage::disk('oci')->putFileAs('uploads', $photoFile, $rawFileName);
             }
 
-            // --- Logic: Upload ke Cloud (OCI) ---
+            // --- STEP 2: PERSIAPAN LOGIC SANDWICH ---
+            
+            // A. Load Frame Asli (Ini akan jadi Layer Paling Atas / Rotinya)
+            try {
+                $frameImg = Image::make($frame->image_url);
+            } catch (\Exception $imgErr) {
+                throw new \Exception("Gagal download Frame: " . $frame->image_url);
+            }
+
+            // B. Buat Kanvas Kosong (Layer Paling Bawah / Piringnya)
+            // Ukurannya sama persis dengan frame, warnanya putih
+            $finalCanvas = Image::canvas($frameImg->width(), $frameImg->height(), '#ffffff');
+
+            $coordinates = json_decode($frame->coordinates, true);
+            if (empty($coordinates)) {
+                // Fallback kalau koordinat kosong
+                $coordinates = [['x' => 0, 'y' => 0, 'w' => $frameImg->width(), 'h' => $frameImg->height()]];
+            }
+
+            // --- STEP 3: PROSES MERGE FOTO (Isian Sandwich) ---
+            foreach ($uploadedPhotos as $index => $photoFile) {
+                if (isset($coordinates[$index])) {
+                    $slot = $coordinates[$index]; 
+                    $imgUser = Image::make($photoFile);
+                    
+                    // --- PERBAIKAN UTAMA: FORCE STRETCH & EXTRA BLEED ---
+                    
+                    // 1. Tambah Bleed (Lebihan) Ekstrem
+                    // Kita lebihkan 50px (sebelumnya 20px) agar benar-benar menutupi lubang walau geser dikit
+                    $extraBleed = 50; 
+                    
+                    $w_target = $slot['w'] + $extraBleed;
+                    $h_target = $slot['h'] + $extraBleed;
+                    
+                    // 2. Ganti fit() jadi resize()
+                    // 'resize' akan memaksa gambar ditarik (stretch) sesuai ukuran target
+                    // Ini menjamin seluruh area tertutup pixel gambar, tidak ada cropping.
+                    $imgUser->resize($w_target, $h_target);
+
+                    // 3. Center Adjustment
+                    // Geser koordinat mundur setengah dari extraBleed agar posisi tetap di tengah
+                    $x_adjusted = $slot['x'] - ($extraBleed / 2);
+                    $y_adjusted = $slot['y'] - ($extraBleed / 2);
+
+                    $finalCanvas->insert($imgUser, 'top-left', $x_adjusted, $y_adjusted);
+                }
+            }
+
+            // --- STEP 4: TUTUP DENGAN FRAME (Roti Atas) ---
+            // Tempel frame PNG (yang bolong transparan) di atas tumpukan foto tadi
+            // Pinggiran foto yang "tumpah" akan tertutup rapi oleh bingkai frame
+            $finalCanvas->insert($frameImg, 'top-left', 0, 0);
+
+            // --- STEP 5: UPLOAD HASIL ---
             $filename = 'COLLAGE_' . time() . '_' . Str::random(10) . '.jpg';
-            $resultStream = $canvas->stream('jpg', 90);
+            $resultStream = $finalCanvas->stream('jpg', 90);
             
             Storage::disk('oci')->put('results/' . $filename, $resultStream);
+            
+            // Generate URL
+            $ociBaseUrl = rtrim($ociEndpoint, '/');
+            $finalResultUrl = "{$ociBaseUrl}/{$ociBucket}/results/{$filename}";
 
-            // URL Hasil
-            $ociBaseUrl = rtrim(config('filesystems.disks.oci.url'), '/');
-            $bucketName = config('filesystems.disks.oci.bucket');
-            $finalResultUrl = "{$ociBaseUrl}/{$bucketName}/results/{$filename}";
-
-            // --- Logic: Simpan ke Database ---
             Job::create([
                 'user_id' => $user->id,
                 'frame_id' => $frame->id,
@@ -156,11 +175,16 @@ class SnapController extends Controller
                 'result_url' => $finalResultUrl
             ]);
 
-            // REDIRECT KE PEKERJAAN SAYA (Bukan Dashboard lagi, biar langsung lihat hasil)
-            return redirect()->route('pekerjaan')->with('success', 'Kolase berhasil dibuat! Cek hasilnya di sini.');
+            return redirect()->route('dashboard')->with('success', 'Berhasil! Foto rapi di belakang frame.');
 
         } catch (\Exception $e) {
-            return back()->withErrors(['msg' => 'Gagal memproses: ' . $e->getMessage()])->withInput();
+            Log::error("SNAP CONTROLLER ERROR: " . $e->getMessage());
+            
+            $errorMsg = $e->getMessage();
+            if ($e->getPrevious()) {
+                $errorMsg .= " | " . $e->getPrevious()->getMessage();
+            }
+            return back()->withErrors(['msg' => $errorMsg])->withInput();
         }
     }
 }

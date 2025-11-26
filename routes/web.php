@@ -3,8 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SnapController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\GalleryController;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -12,12 +10,12 @@ use App\Http\Controllers\GalleryController;
 |--------------------------------------------------------------------------
 */
 
-// 1. Landing Page (Halaman Depan yang ada animasinya)
+// 1. Landing Page
 Route::get('/', function () {
     return view('welcome');
 })->name('landing');
 
-// Route Auth (Login/Register/Logout)
+// Route Auth
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
@@ -31,26 +29,25 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 */
 Route::middleware('auth')->group(function () {
     
-    // 2. Dashboard (Pusat Kontrol & Statistik)
-    // Pastikan di Controller function index() me-return view('dashboard')
+    // 2. Dashboard (Pusat Kontrol)
     Route::get('/dashboard', [SnapController::class, 'index'])->name('dashboard');
     
-    // 3. Galeri Frame (Katalog Pilihan Frame)
+    // 3. Galeri Frame
     Route::get('/frames', [SnapController::class, 'gallery'])->name('gallery');
 
-    // 4. Pekerjaan Saya (History Projek) - Jalur Baru!
-    // Pastikan di Controller ada function pekerjaan()
-    Route::get('/pekerjaan-saya', [SnapController::class, 'pekerjaan'])->name('pekerjaan');
+    // 4. Pekerjaan Saya (History Projek)
+    // Kita arahkan ke index() karena isinya sama (list pekerjaan)
+    Route::get('/pekerjaan-saya', [SnapController::class, 'index'])->name('pekerjaan');
 
-    // 5. Profil Saya - Jalur Baru!
-    // Pastikan di Controller ada function profile()
-    Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
+    // 5. Profil Saya (Opsional - Jika belum ada method profile, arahkan ke dashboard dulu atau buat method kosong)
+    // Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
 
     // 6. Upload Foto (Buat Projek Baru)
-    Route::get('/gallery/upload', [GalleryController::class, 'create'])->name('gallery.upload.create');
-    Route::post('/gallery/upload', [GalleryController::class, 'store'])->name('gallery.upload.store');
+    // PENTING: Nama route ini HARUS 'upload.create' agar sesuai dengan layout.blade.php dan tombol di galeri
+    Route::get('/upload', [SnapController::class, 'create'])->name('upload.create');
+    Route::post('/upload', [SnapController::class, 'store'])->name('upload.store');
 
-    Route::get('/gallery/request', [GalleryController::class, 'request'])->name('gallery.request');
-    Route::post('/gallery/request', [GalleryController::class, 'submitRequest'])->name('gallery.request.submit');
+    // 7. Request Frame (Opsional)
+    // Route::get('/request-frame', [SnapController::class, 'requestFrame'])->name('gallery.request');
 
 });
