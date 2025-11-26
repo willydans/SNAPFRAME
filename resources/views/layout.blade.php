@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-100 text-gray-800">
     
     <!-- Navbar -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -23,13 +23,18 @@
                     @auth
                     <!-- Menu Tengah (Hanya muncul jika login) -->
                     <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
+                        <a href="{{ route('dashboard') }}" 
+                            class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition duration-150 ease-in-out
+                            {{ request()->routeIs('dashboard') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+                                Dashboard
+                        </a>
                         <a href="{{ route('gallery') }}" class="{{ request()->routeIs('gallery') || request()->routeIs('home') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Galeri Frame
                         </a>
                         <a href="{{ route('upload.create') }}" class="{{ request()->routeIs('upload.create') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Upload Foto
                         </a>
-                        <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                        <a href="{{ route('pekerjaan') }}" class="{{ request()->routeIs('pekerjaan') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Pekerjaan Saya
                         </a>
                     </div>
@@ -50,9 +55,18 @@
                             </div>
                         </div>
                     @else
-                        <div class="space-x-4">
-                            <a href="{{ route('login') }}" class="text-gray-500 hover:text-gray-900 font-medium">Masuk</a>
-                            <a href="{{ route('register') }}" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Daftar</a>
+                        <div class="flex space-x-8"> <a href="{{ route('login') }}" 
+                            class="text-sm font-semibold leading-6 transition duration-150 ease-in-out
+                            {{ request()->routeIs('login') ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900' }}">
+                            Masuk
+                            </a>
+
+                            <a href="{{ route('register') }}" 
+                            class="text-sm font-semibold leading-6 transition duration-150 ease-in-out
+                            {{ request()->routeIs('register') ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900' }}">
+                            Daftar
+                            </a>
+
                         </div>
                     @endauth
                 </div>
@@ -70,5 +84,22 @@
     <footer class="bg-white border-t mt-12 py-8 text-center text-gray-400 text-sm">
         &copy; 2025 SnapFrame OCI Project.
     </footer>
+        <script>
+            function togglePassword(inputId, button) {
+                const input = document.getElementById(inputId);
+                const eyeOpen = button.querySelector('.eye-open');
+                const eyeClosed = button.querySelector('.eye-closed');
+
+                if (input.type === "password") {
+                    input.type = "text"; // Ubah jadi teks biasa
+                    eyeOpen.classList.add('hidden'); // Sembunyikan mata terbuka
+                    eyeClosed.classList.remove('hidden'); // Tampilkan mata tertutup (dicoret)
+                } else {
+                    input.type = "password"; // Balikin jadi password (titik-titik)
+                    eyeOpen.classList.remove('hidden');
+                    eyeClosed.classList.add('hidden');
+                }
+            }
+        </script>
 </body>
 </html>
