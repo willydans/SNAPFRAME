@@ -9,94 +9,96 @@ class FrameSeeder extends Seeder
 {
     public function run(): void
     {
-        // URL Dasar Bucket OCI (Ganti dengan milik Anda jika berbeda)
+        // URL BASE (Sesuaikan namespace 'ax28k1agvutq' dengan punya kamu)
         $baseUrl = 'https://objectstorage.ap-batam-1.oraclecloud.com/n/ax28k1agvutq/b/snapframe-assets/o/frames/';
 
         // -----------------------------------------------------------
-        // 1. FRAME BARU: Grey Minimalist Story (Sesuai Gambar Upload)
+        // 1. Grey Minimalist Story (11 Foto)
         // -----------------------------------------------------------
-        // Analisis Gambar: 
-        // - Ukuran Kanvas: Asumsi 1080x1920 (Story)
-        // - Total Slot: 11 Foto
-        // - Baris 1-3: Grid 3 kolom
-        // - Baris 4: Grid 2 kolom (Landscape)
         Frame::create([
             'name' => 'Grey Minimalist Story',
             'description' => 'Kolase estetik 11 foto untuk story Instagram.',
             'image_url' => $baseUrl . 'grey-collage.png', 
             'asset_path' => 'frames/grey-collage.png',
-            'max_photos' => 11, // WAJIB upload 11 foto
+            'max_photos' => 11, 
             'coordinates' => json_encode([
-                // --- BARIS 1 (3 Foto Portrait) ---
-                // x, y = posisi titik kiri atas | w, h = lebar & tinggi foto
+                // Baris 1
                 ['x' => 50,  'y' => 50,  'w' => 300, 'h' => 400], 
                 ['x' => 390, 'y' => 50,  'w' => 300, 'h' => 400], 
                 ['x' => 730, 'y' => 50,  'w' => 300, 'h' => 400], 
-
-                // --- BARIS 2 (3 Foto Portrait) ---
+                // Baris 2
                 ['x' => 50,  'y' => 500, 'w' => 300, 'h' => 400], 
                 ['x' => 390, 'y' => 500, 'w' => 300, 'h' => 400], 
                 ['x' => 730, 'y' => 500, 'w' => 300, 'h' => 400], 
-
-                // --- BARIS 3 (3 Foto Portrait) ---
+                // Baris 3
                 ['x' => 50,  'y' => 950, 'w' => 300, 'h' => 400], 
                 ['x' => 390, 'y' => 950, 'w' => 300, 'h' => 400], 
                 ['x' => 730, 'y' => 950, 'w' => 300, 'h' => 400], 
-
-                // --- BARIS 4 (2 Foto Landscape Lebar) ---
-                ['x' => 50,  'y' => 1400, 'w' => 465, 'h' => 350], // Kiri Bawah
-                ['x' => 565, 'y' => 1400, 'w' => 465, 'h' => 350], // Kanan Bawah
+                // Baris 4
+                ['x' => 50,  'y' => 1400, 'w' => 465, 'h' => 350],
+                ['x' => 565, 'y' => 1400, 'w' => 465, 'h' => 350],
             ]),
         ]);
 
         // -----------------------------------------------------------
-        // 2. Grid Emas (6 Foto) - Update dengan Koordinat
+        // 2. Blue Fun Photostrip (4 Foto)
         // -----------------------------------------------------------
         Frame::create([
-            'name' => 'Grid Emas 6 Foto',
-            'description' => 'Tampilan mewah dengan aksen emas.',
-            'image_url' => $baseUrl . 'gold-frame.png', 
-            'asset_path' => 'frames/gold-frame.png', 
-            'max_photos' => 6,
+            'name' => 'Blue Fun Photostrip',
+            'description' => 'Photostrip lucu dengan tema langit dan pesawat.',
+            'image_url' => $baseUrl . 'blue-photostrip.png', 
+            'asset_path' => 'frames/blue-photostrip.png',
+            'max_photos' => 4, 
             'coordinates' => json_encode([
-                // Baris 1 (3 Foto) - Asumsi layout landscape 3x2
-                ['x' => 50,  'y' => 100, 'w' => 300, 'h' => 300],
-                ['x' => 390, 'y' => 100, 'w' => 300, 'h' => 300],
-                ['x' => 730, 'y' => 100, 'w' => 300, 'h' => 300],
-                // Baris 2 (3 Foto)
-                ['x' => 50,  'y' => 450, 'w' => 300, 'h' => 300],
-                ['x' => 390, 'y' => 450, 'w' => 300, 'h' => 300],
-                ['x' => 730, 'y' => 450, 'w' => 300, 'h' => 300],
+                ['x' => 80,  'y' => 280,  'w' => 840, 'h' => 550], 
+                ['x' => 80,  'y' => 920,  'w' => 840, 'h' => 550], 
+                ['x' => 80,  'y' => 1560, 'w' => 840, 'h' => 550], 
+                ['x' => 80,  'y' => 2200, 'w' => 840, 'h' => 550], 
             ]),
         ]);
 
         // -----------------------------------------------------------
-        // 3. Polaroid Klasik (1 Foto)
+        // 3. Brown Aesthetic Strip (3 Foto)
         // -----------------------------------------------------------
         Frame::create([
-            'name' => 'Polaroid Klasik',
-            'description' => 'Nuansa vintage sederhana.',
-            'image_url' => $baseUrl . 'polaroid.png',
-            'asset_path' => 'frames/polaroid.png',
-            'max_photos' => 1,
+            'name' => 'Brown Aesthetic Strip',
+            'description' => 'Nuansa cokelat hangat dengan kutipan motivasi.',
+            'image_url' => $baseUrl . 'brown-photostrip.png', 
+            'asset_path' => 'frames/brown-photostrip.png',
+            'max_photos' => 3, 
             'coordinates' => json_encode([
-                // Hanya 1 slot di tengah agak atas
-                ['x' => 100, 'y' => 100, 'w' => 880, 'h' => 880]
+                ['x' => 150, 'y' => 180, 'w' => 700, 'h' => 700],
+                ['x' => 150, 'y' => 1030, 'w' => 700, 'h' => 700],
+                ['x' => 150, 'y' => 1880, 'w' => 700, 'h' => 700],
             ]),
         ]);
 
         // -----------------------------------------------------------
-        // 4. Modern Hitam (1 Foto)
+        // 4. FRAME BARU: Pink Summer Collage (9 Foto)
         // -----------------------------------------------------------
+        // Asumsi gambar: 1080x1350 (4:5 Portrait) atau sejenisnya.
+        // Grid 3x3.
         Frame::create([
-            'name' => 'Modern Hitam Minimalis',
-            'description' => 'Desain bersih dan tegas.',
-            'image_url' => $baseUrl . 'modern-black.png',
-            'asset_path' => 'frames/modern-black.png',
-            'max_photos' => 1,
+            'name' => 'Pink Summer Collage',
+            'description' => 'Kolase musim panas ceria dengan 9 slot foto.',
+            'image_url' => $baseUrl . 'pink-collage.png', 
+            'asset_path' => 'frames/pink-collage.png',
+            'max_photos' => 9, 
             'coordinates' => json_encode([
-                // 1 Slot Full
-                ['x' => 50, 'y' => 50, 'w' => 980, 'h' => 980]
+                // BARIS 1
+                ['x' => 35,  'y' => 35,  'w' => 320, 'h' => 320], // Kiri Atas
+                ['x' => 380, 'y' => 35,  'w' => 320, 'h' => 320], // Tengah Atas
+                ['x' => 725, 'y' => 35,  'w' => 320, 'h' => 320], // Kanan Atas
+
+                // BARIS 2
+                ['x' => 35,  'y' => 380, 'w' => 320, 'h' => 320], // Kiri Tengah
+                ['x' => 380, 'y' => 380, 'w' => 320, 'h' => 320], // Tengah Tengah
+                ['x' => 725, 'y' => 380, 'w' => 320, 'h' => 320], // Kanan Tengah
+
+                // BARIS 3
+                ['x' => 35,  'y' => 725, 'w' => 320, 'h' => 320], // Kiri Bawah
+                ['x' => 380, 'y' => 725, 'w' => 320, 'h' => 320], // Tengah Bawah
+                ['x' => 725, 'y' => 725, 'w' => 320, 'h' => 320], // Kanan Bawah
             ]),
         ]);
     }
