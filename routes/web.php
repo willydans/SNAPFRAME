@@ -39,15 +39,19 @@ Route::middleware('auth')->group(function () {
     // Kita arahkan ke index() karena isinya sama (list pekerjaan)
     Route::get('/pekerjaan-saya', [SnapController::class, 'index'])->name('pekerjaan');
 
-    // 5. Profil Saya (Opsional - Jika belum ada method profile, arahkan ke dashboard dulu atau buat method kosong)
-    // Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
+    // 5. Profil Saya 
+    Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
 
-    // 6. Upload Foto (Buat Projek Baru)
-    // PENTING: Nama route ini HARUS 'upload.create' agar sesuai dengan layout.blade.php dan tombol di galeri
+    // 6. ALUR UPLOAD BARU (UPLOAD -> EDITOR -> SAVE)
+    
+    // A. Halaman Pilih Frame & Upload Foto
     Route::get('/upload', [SnapController::class, 'create'])->name('upload.create');
-    Route::post('/upload', [SnapController::class, 'store'])->name('upload.store');
-
-    // 7. Request Frame (Opsional)
-    // Route::get('/request-frame', [SnapController::class, 'requestFrame'])->name('gallery.request');
+    
+    // B. Proses Foto Mentah & Masuk ke Halaman Editor Canvas
+    // (Menggantikan route 'store' yang lama)
+    Route::post('/editor', [SnapController::class, 'showEditor'])->name('upload.editor');
+    
+    // C. Simpan Hasil Akhir dari Canvas (AJAX)
+    Route::post('/save-result', [SnapController::class, 'saveResult'])->name('upload.save-result');
 
 });
