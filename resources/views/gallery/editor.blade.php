@@ -42,13 +42,10 @@
 
 <!-- DATA DARI LARAVEL KE JS -->
 <script>
-    const FRAME_URL = "{{ $frame->image_url }}"; // URL Frame PNG
-    // URL Foto user dari OCI temp folder
+    const FRAME_URL = "{{ $frame->image_url }}"; 
     const USER_PHOTOS = @json($photoUrls); 
-    // Koordinat slot (x, y, w, h)
     const COORDINATES = @json($coordinates); 
     
-    // Data form untuk disubmit balik
     const FORM_DATA = {
         frame_id: "{{ $frame->id }}",
         name: "{{ $requestData['name'] }}",
@@ -64,21 +61,18 @@
     const loadingDiv = document.getElementById('loading');
     
     let frameImg = new Image();
-    // Array objek foto: { img, x, y, width, height, scale, isDragging, startX, startY }
     let photoObjects = []; 
     let isLoaded = false;
     let selectedPhotoIndex = -1;
 
     // A. INISIALISASI
-    frameImg.crossOrigin = "Anonymous"; // Penting agar bisa export canvas
+    frameImg.crossOrigin = "Anonymous"; 
     frameImg.src = FRAME_URL;
     
     frameImg.onload = () => {
-        // Set ukuran canvas sesuai ukuran asli frame (resolusi tinggi)
         canvas.width = frameImg.width;
         canvas.height = frameImg.height;
         
-        // CSS agar canvas fit di layar (responsive)
         canvas.style.maxWidth = '100%';
         canvas.style.height = 'auto';
 
@@ -98,20 +92,21 @@
             img.src = url;
             
             img.onload = () => {
-                // Ambil koordinat slot untuk foto ini
+                // Slot Default
                 const slot = COORDINATES[index] || {x:0, y:0, w:300, h:300};
                 
-                // --- PERBAIKAN LOGIC SCALING ---
-                // Kembali ke Math.max (Cover) agar foto memenuhi kotak.
-                // Kita set multiplier 1.0 (pas) agar tidak terlalu zoom in.
-                let scaleStart = Math.max(slot.w / img.width, slot.h / img.height) * 1.0;
+                // --- PERBAIKAN FINAL: KECILKAN FOTO (FIT INSIDE) ---
+                // Kita gunakan Math.min agar foto masuk 100% ke dalam kotak.
+                // Tidak ada crop, tidak ada overlap. Foto akan terlihat pas atau agak kecil.
+                // Multiplier 0.9 memberi sedikit jarak agar user yakin fotonya tidak kepotong.
+                let scaleStart = Math.min(slot.w / img.width, slot.h / img.height) * 0.9;
                 
                 const finalW = img.width * scaleStart;
                 const finalH = img.height * scaleStart;
                 
                 // Center foto di tengah slot
-                const initX = slot.x - (finalW - slot.w) / 2;
-                const initY = slot.y - (finalH - slot.h) / 2;
+                const initX = slot.x + (slot.w - finalW) / 2;
+                const initY = slot.y + (slot.h - finalH) / 2;
 
                 photoObjects[index] = {
                     img: img,
@@ -122,7 +117,7 @@
                     origW: img.width,
                     origH: img.height,
                     scale: scaleStart,
-                    slot: slot // Simpan batas slot untuk referensi
+                    slot: slot 
                 };
 
                 loadedCount++;
@@ -150,32 +145,31 @@
         photoObjects.forEach((photo, i) => {
             if(!photo) return;
             
-            // --- HAPUS CLIPPING ---
-            // Kita gambar foto apa adanya (bisa tumpang tindih, tapi ini yang diminta user)
-            // agar tidak ada bagian yang terpotong/hilang.
+            // --- TANPA CLIPPING ---
+            // Foto digambar apa adanya. Karena ukurannya sudah dikecilkan (Fit Inside),
+            // mereka tidak akan saling menimpa.
             
             ctx.drawImage(photo.img, photo.x, photo.y, photo.width, photo.height);
             
-            // Highlight foto yang sedang dipilih (Border Hijau)
+            // Highlight seleksi (Border Hijau)
             if (i === selectedPhotoIndex) {
                 ctx.strokeStyle = "#00ff00";
                 ctx.lineWidth = 4;
                 ctx.strokeRect(photo.x, photo.y, photo.width, photo.height);
             }
 
-            // Guide Border Slot (Hanya visual bantu, tidak memotong)
+            // Guide Border Slot (Garis putus-putus merah untuk panduan batas)
             if (i === selectedPhotoIndex) {
                 ctx.save();
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; // Merah transparan
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; 
                 ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]); // Garis putus-putus
+                ctx.setLineDash([5, 5]); 
                 ctx.strokeRect(photo.slot.x, photo.slot.y, photo.slot.w, photo.slot.h);
                 ctx.restore();
             }
         });
 
         // 4. Gambar Frame PNG (Layer Atas)
-        // Frame ini yang akan menutupi bagian foto yang "berantakan"
         ctx.drawImage(frameImg, 0, 0);
     }
 
@@ -204,16 +198,13 @@
         
         const pos = getMousePos(evt);
         
-        // LOGIKA SELEKSI YANG LEBIH PINTAR
-        // Kita cek apakah user mengklik area SLOT?
-        // Ini membantu memilih foto yang tepat meskipun fotonya tumpang tindih.
         let found = -1;
         
+        // Prioritas klik pada area SLOT
         for (let i = 0; i < photoObjects.length; i++) {
             const p = photoObjects[i];
             const s = p.slot;
             
-            // Prioritas 1: Klik di dalam area SLOT
             if (pos.x >= s.x && pos.x <= s.x + s.w &&
                 pos.y >= s.y && pos.y <= s.y + s.h) {
                 found = i;
@@ -221,7 +212,6 @@
             }
         }
         
-        // Prioritas 2: Kalau tidak kena slot, cek kena gambar fotonya
         if (found === -1) {
              for (let i = 0; i < photoObjects.length; i++) {
                 const p = photoObjects[i];
@@ -279,16 +269,15 @@
         const delta = evt.deltaY > 0 ? -1 : 1; 
         const newScale = photo.scale + (delta * scaleFactor);
 
-        if (newScale < 0.1 || newScale > 5) return;
+        if (newScale < 0.05 || newScale > 10) return;
 
-        const oldW = photo.width;
-        const oldH = photo.height;
-        const newW = photo.origW * newScale;
-        const newH = photo.origH * newScale;
+        // Zoom Logic Relative to Current Size
+        const newW = photo.width * (1 + (delta * 0.05));
+        const newH = photo.height * (1 + (delta * 0.05));
 
         // Zoom centered
-        photo.x -= (newW - oldW) / 2;
-        photo.y -= (newH - oldH) / 2;
+        photo.x -= (newW - photo.width) / 2;
+        photo.y -= (newH - photo.height) / 2;
         
         photo.width = newW;
         photo.height = newH;
@@ -303,16 +292,14 @@
     canvas.addEventListener('mouseup', handleEnd);
     canvas.addEventListener('mouseout', handleEnd);
     
-    // Touch support (HP)
     canvas.addEventListener('touchstart', handleStart, {passive: false});
     canvas.addEventListener('touchmove', handleMove, {passive: false});
     canvas.addEventListener('touchend', handleEnd);
     
-    // Zoom support
     canvas.addEventListener('wheel', handleScroll, {passive: false});
 
 
-    // D. SAVE FUNCTION
+    // Save Function
     const saveBtn = document.getElementById('saveBtn');
     
     saveBtn.addEventListener('click', () => {
@@ -323,7 +310,7 @@
         document.getElementById('btnSpinner').classList.remove('hidden');
 
         selectedPhotoIndex = -1;
-        draw(); // Redraw untuk menghilangkan border seleksi
+        draw();
 
         const dataURL = canvas.toDataURL('image/jpeg', 0.95);
 
