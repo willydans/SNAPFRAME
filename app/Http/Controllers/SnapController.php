@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Intervention\Image\Facades\Image; // Pastikan ini ada
 
 class SnapController extends Controller
 {
@@ -48,24 +49,21 @@ class SnapController extends Controller
     }
 
     /**
-     * TAHAP 1: Terima Foto dari Form Upload -> Kirim ke Halaman Editor
-     * Menggantikan fungsi store() yang lama
+     * TAHAP 1: Terima Foto -> RESIZE KECIL -> Kirim ke Editor
      */
     public function showEditor(Request $request)
     {
-        // 1. Validasi Input
         $request->validate([
             'name' => 'required|string|max:255',
             'priority' => 'required',
             'frame_id' => 'required|exists:frames,id',
             'photos' => 'required|array', 
-            'photos.*' => 'image|max:10240', // Max 10MB biar user leluasa
+            'photos.*' => 'image|max:10240',
         ]);
 
         $frame = Frame::find($request->frame_id);
         $uploadedPhotos = $request->file('photos');
 
-        // Validasi Jumlah Foto
         if (count($uploadedPhotos) !== $frame->max_photos) {
             return back()
                 ->withErrors(['msg' => "Gagal! Frame '{$frame->name}' butuh {$frame->max_photos} foto."])
@@ -73,21 +71,28 @@ class SnapController extends Controller
         }
 
         try {
-            // Setup Koneksi OCI (Pakai fungsi helper biar rapi)
             $this->configureOCI();
 
-            // 2. Upload Foto Mentah ke Folder 'temp' di OCI
-            // Kita butuh URL publiknya untuk ditampilkan di Canvas JS
             $photoUrls = [];
             
             foreach ($uploadedPhotos as $index => $photo) {
-                // Nama file unik
                 $filename = 'temp_' . time() . '_' . $index . '_' . Str::random(8) . '.' . $photo->getClientOriginalExtension();
                 
-                // Upload
-                Storage::disk('oci')->putFileAs('temp', $photo, $filename);
+                // --- RESIZE AGRESIF (600px) ---
+                // Kita kecilkan foto jadi Maksimal Lebar 600px.
+                // Ini membuat foto sangat ringan dan dimensinya pas untuk web.
+                $img = Image::make($photo);
                 
-                // Generate Public URL
+                $img->resize(600, null, function ($constraint) {
+                    $constraint->aspectRatio(); 
+                    $constraint->upsize();      
+                });
+
+                // Stream hasil resize
+                $resource = $img->stream(null, 80); 
+                Storage::disk('oci')->put('temp/' . $filename, $resource);
+                
+                // Generate URL
                 $ociEndpoint = rtrim(config('filesystems.disks.oci.endpoint'), '/');
                 $ociBucket = config('filesystems.disks.oci.bucket');
                 $url = "{$ociEndpoint}/{$ociBucket}/temp/{$filename}";
@@ -95,15 +100,12 @@ class SnapController extends Controller
                 $photoUrls[] = $url;
             }
 
-            // 3. Ambil Koordinat Frame
             $coordinates = json_decode($frame->coordinates, true);
 
-            // 4. Lempar data ke View 'gallery.editor'
             return view('gallery.editor', [
                 'frame' => $frame,
                 'photoUrls' => $photoUrls,
                 'coordinates' => $coordinates,
-                // Kita kirim balik input nama/prioritas agar tidak hilang
                 'requestData' => $request->only(['name', 'priority']) 
             ]);
 
@@ -114,12 +116,12 @@ class SnapController extends Controller
     }
 
     /**
-     * TAHAP 2: Simpan Hasil Akhir dari Canvas (Base64)
+     * TAHAP 2: Simpan Hasil Akhir
      */
     public function saveResult(Request $request)
     {
         $request->validate([
-            'image_data' => 'required', // String Base64 dari Canvas
+            'image_data' => 'required',
             'frame_id' => 'required',
             'name' => 'required',
             'priority' => 'required',
@@ -127,38 +129,26 @@ class SnapController extends Controller
 
         try {
             $user = Auth::user();
-            
-            // Setup Koneksi OCI
             $this->configureOCI();
 
-            // 1. Decode Base64 Image
+            // Decode Base64
             $image_64 = $request->image_data; 
+            if (strpos($image_64, 'data:image') === false) throw new \Exception("Format gambar tidak valid.");
             
-            // Validasi format base64
-            if (strpos($image_64, 'data:image') === false) {
-                 throw new \Exception("Format gambar tidak valid.");
-            }
-            
-            // Ekstrak ekstensi (jpg/png)
             $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];
-            
-            // Bersihkan string base64
             $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
             $image = str_replace($replace, '', $image_64); 
             $image = str_replace(' ', '+', $image); 
             
-            // Buat nama file final
             $imageName = 'FINAL_' . time() . '_' . Str::random(8) . '.' . $extension;
 
-            // 2. Simpan ke Folder 'results'
+            // Simpan
             Storage::disk('oci')->put('results/' . $imageName, base64_decode($image));
 
-            // 3. Generate URL Akhir
             $ociEndpoint = rtrim(config('filesystems.disks.oci.endpoint'), '/');
             $ociBucket = config('filesystems.disks.oci.bucket');
             $finalResultUrl = "{$ociEndpoint}/{$ociBucket}/results/{$imageName}";
 
-            // 4. Simpan ke Database
             Job::create([
                 'user_id' => $user->id,
                 'frame_id' => $request->frame_id,
@@ -169,7 +159,6 @@ class SnapController extends Controller
                 'result_url' => $finalResultUrl
             ]);
 
-            // Return JSON untuk AJAX
             return response()->json(['status' => 'success', 'redirect' => route('dashboard')]);
 
         } catch (\Exception $e) {
@@ -178,10 +167,6 @@ class SnapController extends Controller
         }
     }
 
-    /**
-     * Helper Private: Konfigurasi OCI yang Aman
-     * Mencegah SignatureDoesNotMatch dan masalah Cache
-     */
     private function configureOCI()
     {
         $ociKey = trim(env('OCI_ACCESS_KEY_ID', ''), " \"'");
@@ -194,7 +179,6 @@ class SnapController extends Controller
              throw new \Exception("Konfigurasi ENV OCI belum lengkap.");
         }
 
-        // Reset Config Disk secara Runtime
         config([
             'filesystems.disks.oci' => [
                 'driver' => 's3',
@@ -207,8 +191,6 @@ class SnapController extends Controller
                 'throw' => true,
             ]
         ]);
-        
-        // Hapus cache instance disk lama
         Storage::forgetDisk('oci');
     }
 }
