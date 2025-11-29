@@ -9,23 +9,32 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Intervention\Image\Facades\Image; // Pastikan ini ada
+use Intervention\Image\Facades\Image; 
 
 class SnapController extends Controller
 {
+    // Dashboard sekarang jadi Landing Page / Company Profile
     public function index()
     {
         $userId = Auth::id();
+        // Data ini opsional jika dashboard baru statis, tapi kita biarkan saja
         $totalProjek = Job::where('user_id', $userId)->count();
         $recentJobs = Job::with('frame')->where('user_id', $userId)->latest()->take(5)->get();
         return view('dashboard', compact('totalProjek', 'recentJobs'));
     }
 
+    // HALAMAN UTAMA FITUR (Pekerjaan Saya)
     public function pekerjaan()
     {
         $userId = Auth::id();
+        // Ambil semua job
         $jobs = Job::with('frame')->where('user_id', $userId)->latest()->get();
-        return view('pekerjaan', compact('jobs'));
+        
+        // Hitung total untuk statistik (Fitur pindahan dari Dashboard)
+        $totalProjek = $jobs->count();
+        
+        // Kirim $jobs dan $totalProjek ke view
+        return view('pekerjaan', compact('jobs', 'totalProjek'));
     }
 
     public function gallery()
@@ -48,9 +57,6 @@ class SnapController extends Controller
         return view('gallery.upload', compact('frames', 'selectedFrameId'));
     }
 
-    /**
-     * TAHAP 1: Terima Foto -> RESIZE KECIL -> Kirim ke Editor
-     */
     public function showEditor(Request $request)
     {
         $request->validate([
@@ -78,21 +84,16 @@ class SnapController extends Controller
             foreach ($uploadedPhotos as $index => $photo) {
                 $filename = 'temp_' . time() . '_' . $index . '_' . Str::random(8) . '.' . $photo->getClientOriginalExtension();
                 
-                // --- RESIZE AGRESIF (600px) ---
-                // Kita kecilkan foto jadi Maksimal Lebar 600px.
-                // Ini membuat foto sangat ringan dan dimensinya pas untuk web.
+                // Resize Agresif (600px)
                 $img = Image::make($photo);
-                
                 $img->resize(600, null, function ($constraint) {
                     $constraint->aspectRatio(); 
                     $constraint->upsize();      
                 });
 
-                // Stream hasil resize
                 $resource = $img->stream(null, 80); 
                 Storage::disk('oci')->put('temp/' . $filename, $resource);
                 
-                // Generate URL
                 $ociEndpoint = rtrim(config('filesystems.disks.oci.endpoint'), '/');
                 $ociBucket = config('filesystems.disks.oci.bucket');
                 $url = "{$ociEndpoint}/{$ociBucket}/temp/{$filename}";
@@ -115,9 +116,6 @@ class SnapController extends Controller
         }
     }
 
-    /**
-     * TAHAP 2: Simpan Hasil Akhir
-     */
     public function saveResult(Request $request)
     {
         $request->validate([
@@ -131,7 +129,6 @@ class SnapController extends Controller
             $user = Auth::user();
             $this->configureOCI();
 
-            // Decode Base64
             $image_64 = $request->image_data; 
             if (strpos($image_64, 'data:image') === false) throw new \Exception("Format gambar tidak valid.");
             
@@ -142,7 +139,6 @@ class SnapController extends Controller
             
             $imageName = 'FINAL_' . time() . '_' . Str::random(8) . '.' . $extension;
 
-            // Simpan
             Storage::disk('oci')->put('results/' . $imageName, base64_decode($image));
 
             $ociEndpoint = rtrim(config('filesystems.disks.oci.endpoint'), '/');
@@ -159,7 +155,7 @@ class SnapController extends Controller
                 'result_url' => $finalResultUrl
             ]);
 
-            return response()->json(['status' => 'success', 'redirect' => route('dashboard')]);
+            return response()->json(['status' => 'success', 'redirect' => route('pekerjaan')]); // Redirect ke Pekerjaan Saya
 
         } catch (\Exception $e) {
             Log::error("SAVE RESULT ERROR: " . $e->getMessage());

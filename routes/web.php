@@ -36,8 +36,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/frames', [SnapController::class, 'gallery'])->name('gallery');
 
     // 4. Pekerjaan Saya (History Projek)
-    // Kita arahkan ke index() karena isinya sama (list pekerjaan)
-    Route::get('/pekerjaan-saya', [SnapController::class, 'index'])->name('pekerjaan');
+    // PERBAIKAN PENTING: Arahkan ke method 'pekerjaan', JANGAN 'index'
+    // Kalau ke 'index', nanti tampilannya jadi Dashboard lagi.
+    Route::get('/pekerjaan-saya', [SnapController::class, 'pekerjaan'])->name('pekerjaan');
 
     // 5. Profil Saya 
     Route::get('/profile', [SnapController::class, 'profile'])->name('profile');
@@ -48,8 +49,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/upload', [SnapController::class, 'create'])->name('upload.create');
     
     // B. Proses Foto Mentah & Masuk ke Halaman Editor Canvas
-    // (Menggantikan route 'store' yang lama)
     Route::post('/editor', [SnapController::class, 'showEditor'])->name('upload.editor');
+
+    // PERBAIKAN: Jaring Pengaman Error Refresh
+    // Jika user refresh halaman editor (GET request), lempar balik ke upload agar tidak error
+    Route::get('/editor', function() {
+        return redirect()->route('upload.create')->withErrors(['msg' => 'Sesi habis. Silakan upload foto ulang.']);
+    });
     
     // C. Simpan Hasil Akhir dari Canvas (AJAX)
     Route::post('/save-result', [SnapController::class, 'saveResult'])->name('upload.save-result');
